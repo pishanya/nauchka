@@ -13,23 +13,30 @@ from glucose import (
 def transition(state: tuple[int, int, int], G: float) -> tuple[int, int, int]:
     prev_alpha, prev_beta, prev_delta = state
     new_alpha, new_beta, new_delta = prev_alpha, prev_beta, 0
-
+    if state == (1, 0, 0):
+        return (1, 1, 1)
+    if state == (0, 1, 0) or state == (0, 1, 1):
+        return (1, 1, 1)
     if G >= glucose.G_max_bound:
         new_alpha, new_beta = 0, 1
+        return (new_alpha, new_beta, new_delta)
     elif G <= glucose.G_min_bound:
         new_alpha, new_beta = 1, 0
-
+        return (new_alpha, new_beta, new_delta)
     # Дельта-клетки: активируются только если в предыдущем состоянии
     # были активны и альфа, и бета (конфликт)
     if prev_alpha == 1 and prev_beta == 1:
         new_delta = 1
         new_alpha, new_beta = 0, 0  # Сбрасываем конфликт
+        return (new_alpha, new_beta, new_delta)
         
     # Задержка деактивации: клетки остаются активными 1 шаг после выхода из их зоны
     if new_alpha == 0 and G > glucose.G_min_bound and G < glucose.G_max_bound:
         new_alpha = prev_alpha  # Сохраняем предыдущее состояние альфа
+        return (new_alpha, new_beta, new_delta)
     if new_beta == 0 and G > glucose.G_min_bound and G < glucose.G_max_bound:
         new_beta = prev_beta  # Сохраняем предыдущее состояние бета
+        return (new_alpha, new_beta, new_delta)
 
     return (new_alpha, new_beta, new_delta)
 # ----------------------------------
@@ -74,7 +81,7 @@ def build_full_graph():
 
 
 def simulate():
-    time_points = np.linspace(0, 100, 1000) 
+    time_points = np.linspace(0, 100, 100) 
     states_over_time = []
     glucose_over_time = []
 
@@ -91,7 +98,7 @@ def simulate():
 # ----------------------------------
 # 6. Построение графиков: комбинированный граф (глюкоза и состояния)
 # ----------------------------------
-def plot_simulation(time_points, states_over_time, glucose_over_time):
+def plot_simulation1(time_points, states_over_time, glucose_over_time):
     unique = sorted({s for s in states_over_time}, key=lambda s: state_label(s))
     mapping = {s: i for i, s in enumerate(unique)}
     numeric_states = [mapping[s] for s in states_over_time]
@@ -128,6 +135,72 @@ def plot_simulation(time_points, states_over_time, glucose_over_time):
     plt.savefig("graph2.png")
 
 
+#////////////////////////////////////
+
+def plot_simulation(time_points, states_over_time, glucose_over_time, glucose):
+    """
+    Построение единой фигуры, где:
+      - первая ось (subplots[0]) – график уровня глюкозы с нанесёнными горизонтальными
+        пунктирными линиями в позициях glucose.G_min_bound и glucose.G_max_bound,
+      - следующие оси – графики активности чистых состояний:
+            (1, 0, 0), (0, 1, 0) и (0, 0, 1).
+    
+    Если в каком-то такте значение состояния смешанное, например, (1, 1, 0),
+    то считается, что активны и (1, 0, 0), и (0, 1, 0).
+    
+    Параметры:
+      time_points      - массив временных точек
+      states_over_time - последовательность состояний автомата, где состояние представлено кортежем,
+                         например, (1, 0, 0) или (1, 1, 0)
+      glucose_over_time- значения уровня глюкозы по времени
+      glucose          - объект с атрибутами:
+                         G_min, G_max, G_middle, G_min_bound, G_max_bound
+    """
+    # Всегда будем выводить 1 график для глюкозы + 3 графика для активности каждой чистой компоненты.
+    total_plots = 4
+    fig, axes = plt.subplots(total_plots, 1, figsize=(12, 3 * total_plots), sharex=True)
+    
+    # 1. График уровня глюкозы
+    ax0 = axes[0]
+    ax0.step(time_points, glucose_over_time, where='post', color='black',
+             label='Уровень глюкозы', linewidth=2)
+    ax0.set_ylabel("Глюкоза")
+    ax0.set_title("Уровень глюкозы")
+    ax0.set_ylim(-2.5, 2.5)
+    ax0.axhline(glucose.G_min_bound, color='blue', linestyle='--', linewidth=2,
+                label=f'G_min_bound = {glucose.G_min_bound}')
+    ax0.axhline(glucose.G_max_bound, color='blue', linestyle='--', linewidth=2,
+                label=f'G_max_bound = {glucose.G_max_bound}')
+    ax0.legend(loc='upper right')
+    ax0.grid(True)
+    
+    state1_activity = [1 if s[0] == 1 else 0 for s in states_over_time]
+    state2_activity = [1 if s[1] == 1 else 0 for s in states_over_time]
+    state3_activity = [1 if s[2] == 1 else 0 for s in states_over_time]
+    
+    axes[1].step(time_points, state1_activity, where='post', color='green', linewidth=2)
+    axes[1].set_ylabel("(1, 0, 0)")
+    axes[1].set_ylim(-0.1, 1.1)
+    axes[1].grid(True)
+    
+    axes[2].step(time_points, state2_activity, where='post', color='orange', linewidth=2)
+    axes[2].set_ylabel("(0, 1, 0)")
+    axes[2].set_ylim(-0.1, 1.1)
+    axes[2].grid(True)
+    
+    # График для чистого состояния (0, 0, 1)
+    axes[3].step(time_points, state3_activity, where='post', color='purple', linewidth=2)
+    axes[3].set_ylabel("(0, 0, 1)")
+    axes[3].set_ylim(-0.1, 1.1)
+    axes[3].grid(True)
+    
+    # Общая настройка нижней оси
+    axes[-1].set_xlabel("Время")
+    fig.suptitle("Моделирование: уровень глюкозы и активность чистых состояний", fontsize=16)
+    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    plt.savefig("simulation_plot.png")
+    plt.show()
+
 if __name__ == "__main__":
     # Строим полный граф переходов
     full_graph, full_edge_labels = build_full_graph()
@@ -139,9 +212,8 @@ if __name__ == "__main__":
     plt.title("Полный граф переходов (G∈{0,1,2}, состояния как буквы)")
     plt.savefig("graph.png")
 
-    # Симулируем 24 часа
     t_points, states_over_time, glucose_over_time = simulate()
-    plot_simulation(t_points, states_over_time, glucose_over_time)
+    plot_simulation(t_points, states_over_time, glucose_over_time, glucose)
 
     # Вывод таблицы переходов
     print("Таблица переходов (24 часа):")
@@ -152,4 +224,22 @@ if __name__ == "__main__":
             break
         # print(f"t={t}, G={g}, state={state_label(s)} -> next={state_label(transition(s, g))}")
         print(f"t={t:6.2f}, G={g}, state={state_label(s):10} -> next={state_label(transition(s, g))}")
+
+
+
+
+
+
+
+
+
+# 1. Екатерина проверит со мной автомат
+# 2. Реализовать более просто автомат: в нем будет 3 состояния (альфа кран, бета кран, l1 * альфа кран и l1 * бета кран).
+# 3. Причина резализации 2: сверхвысокочастотные колебания ("шаг интегрирования"). 
+# 4. ПОКА БЕЗ ЗАРЕЖКИ.
+
+
+
+# (1, 0, 0), (0, 1, 0), (0, 0, 1)
+
 

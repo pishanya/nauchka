@@ -7,17 +7,21 @@ class Glucose:
         self.t_max = t_max
         self.num_points = num_points
         self.t = np.linspace(t_min, t_max, num_points)
-        self.values = self.glucose_func(self.t)
-        self.G_min = np.round(np.min(self.values), 1)
-        self.G_max = np.round(np.max(self.values), 1)
+        # self.values = self.glucose_func(self.t)
+        self.G_min = -1
+        self.G_max = 1
 
-        self.G_middle = np.round((self.G_min + self.G_max) / 2.0, 1)
+        self.G_middle = int(np.round((self.G_min + self.G_max) / 2.0, 1))
         self.G_range = self.G_max - self.G_min
         self.G_min_bound = np.round(self.G_min + fraction * self.G_range, 1)
         self.G_max_bound = np.round(self.G_min + (1 - fraction) * self.G_range, 1)
 
     def glucose_func(self, t):
         return np.sin(t/2)
+    
+    def glucose_func_(self, t):
+        condition = (t // 10) % 2 == 0
+        return 1 if condition else 0
     
     def modify_G(self, G: float) -> int:
         if G < self.G_min_bound:
