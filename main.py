@@ -6,6 +6,10 @@ from glucose import (
     glucose
 )
 
+# все возможные состояния
+all_states = [(0, 0, 1), (1, 0, 0), (0, 1, 0)]  # 3 состояния
+base_state = (0, 0, 1)  # Начальное состояние
+
 
 # ----------------------------------
 # 1. Функция перехода
@@ -84,7 +88,6 @@ def state_label(state):
 # ----------------------------------
 def build_full_graph():
     # all_states = list(itertools.product([0,1],[0,1],[0,1]))  # 8 состояний
-    all_states = [(0, 0, 1), (1, 0, 0), (0, 1, 0)]  # 8 состояний
     G_graph = nx.DiGraph()
     # Добавляем узлы
     for s in all_states:
@@ -107,7 +110,7 @@ def simulate():
     states_over_time = []
     glucose_over_time = []
 
-    current_state = (0, 0, 1)  # Начальное состояние
+    current_state = base_state  # Начальное состояние
     for t in time_points:
         G = glucose.glucose_func(t=t)
         states_over_time.append(current_state)
