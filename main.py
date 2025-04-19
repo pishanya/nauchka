@@ -10,35 +10,56 @@ from glucose import (
 # ----------------------------------
 # 1. Функция перехода
 # ----------------------------------
-def transition(state: tuple[int, int, int], G: float) -> tuple[int, int, int]:
-    prev_alpha, prev_beta, prev_delta = state
-    new_alpha, new_beta, new_delta = prev_alpha, prev_beta, 0
+def transaction1(state: tuple[int, int, int], G: float) -> tuple[int, int, int]:
+    if state == (0, 0, 0):
+        if G == -1:
+            return (1, 0, 0)
+        return state
     if state == (1, 0, 0):
         return (1, 1, 1)
-    if state == (0, 1, 0) or state == (0, 1, 1):
+    if state == (1, 1, 1):
+        if G == -1:
+            return (1, 0, 0)
+        if G == 0:
+            return (1, 0, 1)
+        return (0, 1, 1)
+    if state == (1, 0, 1):
+        if G == 0:
+            return (1, 1, 1)
+        return state
+    if state == (0, 1, 1):
+        if G == 1:
+            return (0, 1, 0)
         return (1, 1, 1)
-    if G >= glucose.G_max_bound:
-        new_alpha, new_beta = 0, 1
-        return (new_alpha, new_beta, new_delta)
-    elif G <= glucose.G_min_bound:
-        new_alpha, new_beta = 1, 0
-        return (new_alpha, new_beta, new_delta)
-    # Дельта-клетки: активируются только если в предыдущем состоянии
-    # были активны и альфа, и бета (конфликт)
-    if prev_alpha == 1 and prev_beta == 1:
-        new_delta = 1
-        new_alpha, new_beta = 0, 0  # Сбрасываем конфликт
-        return (new_alpha, new_beta, new_delta)
-        
-    # Задержка деактивации: клетки остаются активными 1 шаг после выхода из их зоны
-    if new_alpha == 0 and G > glucose.G_min_bound and G < glucose.G_max_bound:
-        new_alpha = prev_alpha  # Сохраняем предыдущее состояние альфа
-        return (new_alpha, new_beta, new_delta)
-    if new_beta == 0 and G > glucose.G_min_bound and G < glucose.G_max_bound:
-        new_beta = prev_beta  # Сохраняем предыдущее состояние бета
-        return (new_alpha, new_beta, new_delta)
+    if state == (0, 1, 0):
+        if G == 0:
+            return (0, 1, 1)
+        if G == -1:
+            return (1, 1, 0)
+        return state
+    if state == (1, 1, 0):
+        return (1, 1, 1)
+    if state == (0, 0, 1):
+        return (0, 0, 0)
+    # print(f"state={state}, G={G} AHAHAHHHHHHHHHHHHH")
 
-    return (new_alpha, new_beta, new_delta)
+def transaction(state: tuple[int, int, int], G: float) -> tuple[int, int, int]:
+    if state == (0, 0, 1):
+        if G == 0:
+            return state
+        if G == -1:
+            return (1, 0, 0)
+        return (0, 1, 0)
+        
+    if state == (1, 0, 0):
+        if G == -1:
+            return state
+        return (0, 0, 1)
+        
+    if state == (0, 1, 0):
+        if G == 1:
+            return state
+        return (0, 0, 1)
 # ----------------------------------
 # 2. Словарь имен состояний
 # ----------------------------------
@@ -62,7 +83,8 @@ def state_label(state):
 # 3. Построение ПОЛНОГО графа переходов (по всем (A,B,D) и G ∈ {0,1,2})
 # ----------------------------------
 def build_full_graph():
-    all_states = list(itertools.product([0,1],[0,1],[0,1]))  # 8 состояний
+    # all_states = list(itertools.product([0,1],[0,1],[0,1]))  # 8 состояний
+    all_states = [(0, 0, 1), (1, 0, 0), (0, 1, 0)]  # 8 состояний
     G_graph = nx.DiGraph()
     # Добавляем узлы
     for s in all_states:
@@ -70,7 +92,7 @@ def build_full_graph():
     edge_labels = {}
     for s in all_states:
         for g in (glucose.G_min, glucose.G_middle, glucose.G_max):
-            ns = transition(s, g)
+            ns = transaction(s, g)
             label_str = f"({g}, {s[0]}, {s[1]}, {s[2]})"
             if (s, ns) not in G_graph.edges():
                 G_graph.add_edge(s, ns)
@@ -81,16 +103,16 @@ def build_full_graph():
 
 
 def simulate():
-    time_points = np.linspace(0, 100, 100) 
+    time_points = np.linspace(0, 100, 1000) 
     states_over_time = []
     glucose_over_time = []
 
-    current_state = (1, 0, 0)  # Начальное состояние
+    current_state = (0, 0, 1)  # Начальное состояние
     for t in time_points:
         G = glucose.glucose_func(t=t)
         states_over_time.append(current_state)
         glucose_over_time.append(G)
-        next_state = transition(current_state, glucose.modify_G(G=G))
+        next_state = transaction(current_state, glucose.modify_G(G=G))
         current_state = next_state
 
     return time_points, states_over_time, glucose_over_time
@@ -222,8 +244,8 @@ if __name__ == "__main__":
         i+=1
         if i == 1000:
             break
-        # print(f"t={t}, G={g}, state={state_label(s)} -> next={state_label(transition(s, g))}")
-        print(f"t={t:6.2f}, G={g}, state={state_label(s):10} -> next={state_label(transition(s, g))}")
+        # print(f"t={t}, G={g}, state={state_label(s)} -> next={state_label(transaction(s, g))}")
+        print(f"t={t:6.2f}, G={g}, state={state_label(s):10} -> next={state_label(transaction(s, g))}")
 
 
 
@@ -231,15 +253,5 @@ if __name__ == "__main__":
 
 
 
-
-
-# 1. Екатерина проверит со мной автомат
-# 2. Реализовать более просто автомат: в нем будет 3 состояния (альфа кран, бета кран, l1 * альфа кран и l1 * бета кран).
-# 3. Причина резализации 2: сверхвысокочастотные колебания ("шаг интегрирования"). 
-# 4. ПОКА БЕЗ ЗАРЕЖКИ.
-
-
-
-# (1, 0, 0), (0, 1, 0), (0, 0, 1)
 
 
